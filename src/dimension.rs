@@ -10,7 +10,7 @@ pub struct Dimension {
     pub id: i32,
 }
 
-pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32) {
+pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32)->Result<(),String> {
     // determine number of dims
     let mut ndims = 0i32;
     unsafe {
@@ -31,10 +31,11 @@ pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32) {
             assert_eq!(err, NC_NOERR);
             c_str = ffi::CStr::from_ptr(buf_ptr);
         }
-        let str_buf: String = string_from_c_str(c_str);
+        let str_buf: String = string_from_c_str(c_str)?;
         dims.insert(str_buf.clone(),
                       Dimension{name: str_buf.clone(),
                           len: dimlen,
                           id: i_dim});
     }
+    Ok(())
 }

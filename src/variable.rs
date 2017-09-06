@@ -12,8 +12,8 @@ use ndarray::{Array1,ArrayD};
 use libc;
 
 macro_rules! get_var_as_type {
-    ( $me:ident, $nc_type:ident, $vec_type:ty, $nc_fn:ident , $cast:ident ) 
-        => 
+    ( $me:ident, $nc_type:ident, $vec_type:ty, $nc_fn:ident , $cast:ident )
+        =>
     {{
         if (!$cast) && ($me.vartype != $nc_type) {
             return Err("Types are not equivalent and cast==false".to_string());
@@ -32,7 +32,7 @@ macro_rules! get_var_as_type {
     }};
 }
 
-/// This trait allow an implicit cast when fetching 
+/// This trait allow an implicit cast when fetching
 /// a netCDF variable
 pub trait Numeric {
     /// Returns the whole variable as Vec<Self>
@@ -60,12 +60,12 @@ pub trait Numeric {
 // C function used to fetch values from the NetCDF variable (eg: 'nc_get_var_ushort', ...).
 //
 macro_rules! impl_numeric {
-    ( 
+    (
         $sized_type: ty,
-        $nc_type: ident, 
-        $nc_get_var: ident, 
+        $nc_type: ident,
+        $nc_get_var: ident,
         $nc_get_vara_type: ident,
-        $nc_get_var1_type: ident, 
+        $nc_get_var1_type: ident,
         $nc_put_var1_type: ident,
         $nc_put_vara_type: ident) => {
 
@@ -113,7 +113,7 @@ macro_rules! impl_numeric {
                 }
                 Ok(buff)
             }
-            
+
             // fetch a SLICE of values from variable using `$nc_get_vara`
             fn slice_from_variable(variable: &Variable, indices: &[usize], slice_len: &[usize]) -> Result<Vec<$sized_type>, String> {
                 // Check the length of `indices`
@@ -190,7 +190,7 @@ macro_rules! impl_numeric {
 
                 Ok(())
             }
-            
+
             // put a SLICE of values into a netCDF variable at the given index
             fn put_values_at(variable: &mut Variable, indices: &[usize], slice_len: &[usize], values: &[Self]) -> Result<(), String> {
                 if indices.len() != slice_len.len() {
@@ -342,7 +342,7 @@ pub struct Variable {
     pub vartype : i32,
     pub id: i32,
     /// total length; the product of all dim lengths
-    pub len: u64, 
+    pub len: u64,
     pub grp_id: i32,
 }
 
@@ -378,7 +378,7 @@ impl Variable {
         get_var_as_type!(self, NC_DOUBLE, f64, nc_get_var_double, cast)
     }
 
-    pub fn add_attribute<T: PutAttr>(&mut self, name: &str, val: T) 
+    pub fn add_attribute<T: PutAttr>(&mut self, name: &str, val: T)
             -> Result<(), String> {
         try!(val.put(self.grp_id, self.id, name));
         self.attributes.insert(
@@ -403,7 +403,7 @@ impl Variable {
     pub fn values<T: Numeric>(&self) -> Result<Vec<T>, String> {
         T::from_variable(self)
     }
-    
+
     /// Fetchs one specific value at specific indices
     ///  indices must has the same length as self.dimensions.
     pub fn value_at<T: Numeric>(&self, indices: &[usize]) -> Result<T, String> {
@@ -433,7 +433,7 @@ impl Variable {
         let array = Array1::<T>::from_vec(values);
         Ok(array.into_shape(dims)?)
     }
-    
+
     /// Fetchs variable slice as a ndarray.
     pub fn array_at<T: Numeric>(&self, indices: &[usize], slice_len: &[usize]) -> Result<ArrayD<T>, Box<Error>> {
         let mut dims: Vec<usize> = Vec::new();
@@ -482,12 +482,13 @@ impl Variable {
         }
         let (grp_id, var_id) = (self.grp_id, self.id);
         self.attributes.clear();
-        init_attributes(&mut self.attributes, grp_id, var_id, natts);
+        init_attributes(&mut self.attributes, grp_id, var_id, natts)?;
         Ok(())
     }
 }
 
-pub fn init_variables(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dims: &HashMap<String, Dimension>) {
+pub fn init_variables(vars: &mut HashMap<String, Variable>, grp_id: i32,
+                  grp_dims: &HashMap<String, Dimension>)->Result<(),String> {
     // determine number of vars
     let mut nvars = 0i32;
     unsafe {
@@ -496,12 +497,13 @@ pub fn init_variables(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dim
         assert_eq!(err, NC_NOERR);
     }
     for i_var in 0..nvars {
-        init_variable(vars, grp_id, grp_dims, i_var);
+        init_variable(vars, grp_id, grp_dims, i_var)?;
     }
+    Ok(())
 }
 
 /// Creates and add a `Variable` Objects, from the dataset
-pub fn init_variable(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dims: &HashMap<String, Dimension>, varid: i32) {
+pub fn init_variable(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dims: &HashMap<String, Dimension>, varid: i32)->Result<(),String> {
     // read each dim name and length
     let mut buf_vec = vec![0i8; (NC_MAX_NAME + 1) as usize];
     let c_str: &ffi::CStr;
@@ -519,9 +521,9 @@ pub fn init_variable(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dims
         assert_eq!(err, NC_NOERR);
         c_str = ffi::CStr::from_ptr(buf_ptr);
     }
-    let str_buf: String = string_from_c_str(c_str);
+    let str_buf: String = string_from_c_str(c_str)?;
     let mut attr_map : HashMap<String, Attribute> = HashMap::new();
-    init_attributes(&mut attr_map, grp_id, varid, natts);
+    init_attributes(&mut attr_map, grp_id, varid, natts)?;
     // var dims should always be a subset of the group dims:
     let mut dim_vec : Vec<Dimension> = Vec::new();
     let mut len : u64 = 1;
@@ -548,5 +550,5 @@ pub fn init_variable(vars: &mut HashMap<String, Variable>, grp_id: i32, grp_dims
             grp_id: grp_id
         }
    );
+   Ok(())
 }
-
