@@ -27,7 +27,7 @@ pub trait PutVar {
 
 // This macro implements the trait PutVar for Vec<$type>
 // It just avoid code repetition for all numeric types
-// (the only difference between each type beeing the 
+// (the only difference between each type beeing the
 // netCDF funtion to call and the numeric identifier
 // of the type used by the libnetCDF library)
 macro_rules! impl_putvar {
@@ -68,7 +68,7 @@ pub trait PutAttr {
 
 // This macro implements the trait PutAttr for $type
 // It just avoid code repetition for all numeric types
-// (the only difference between each type beeing the 
+// (the only difference between each type beeing the
 // netCDF funtion to call and the numeric identifier
 // of the type used by the libnetCDF library)
 macro_rules! impl_putattr {
@@ -109,7 +109,7 @@ impl PutAttr for String {
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();
             err = nc_put_att_text(
-                ncid, varid, name_c.as_ptr(), 
+                ncid, varid, name_c.as_ptr(),
                 attr_c.to_bytes().len() as u64, attr_c.as_ptr());
         }
         if err != NC_NOERR {
@@ -120,7 +120,7 @@ impl PutAttr for String {
 }
 
 impl Group {
-    pub fn add_attribute<T: PutAttr>(&mut self, name: &str, val: T) 
+    pub fn add_attribute<T: PutAttr>(&mut self, name: &str, val: T)
             -> Result<(), String> {
         try!(val.put(self.id, NC_GLOBAL, name));
         self.attributes.insert(
@@ -136,7 +136,7 @@ impl Group {
         Ok(())
     }
 
-    pub fn add_dimension(&mut self, name: &str, len: u64) 
+    pub fn add_dimension(&mut self, name: &str, len: u64)
             -> Result<(), String> {
         let name_c: ffi::CString = ffi::CString::new(name.clone()).unwrap();
         let mut dimid: i32 = 0;
@@ -160,29 +160,29 @@ impl Group {
     }
 
     // TODO this should probably take &Vec<&str> instead of &Vec<String>
-    pub fn add_variable<T: PutVar>(&mut self, name: &str, dims: &Vec<String>, data: &T) 
+    pub fn add_variable<T: PutVar>(&mut self, name: &str, dims: &Vec<String>, data: &T)
                 -> Result<(), String> {
         let nctype: i32 = data.get_nc_type();
         let grp_id = self.id;
         let var = self.create_variable(name, dims, nctype)?;
-        data.put(grp_id, var.id)?; 
+        data.put(grp_id, var.id)?;
         Ok(())
     }
 
     // TODO this should probably take &Vec<&str> instead of &Vec<String>
-    pub fn add_variable_with_fill_value<T: PutVar, N: Numeric>(&mut self, name: &str, dims: &Vec<String>, data: &T, fill_value: N) 
+    pub fn add_variable_with_fill_value<T: PutVar, N: Numeric>(&mut self, name: &str, dims: &Vec<String>, data: &T, fill_value: N)
                 -> Result<(), String> {
         let nctype: i32 = data.get_nc_type();
         let grp_id = self.id;
         let var = self.create_variable(name, dims, nctype)?;
         var.set_fill_value(fill_value)?;
-        data.put(grp_id, var.id)?; 
+        data.put(grp_id, var.id)?;
         Ok(())
     }
 
     // TODO this should probably take &Vec<&str> instead of &Vec<String>
     /// Create a Variable into the dataset, without writting any data into it.
-    pub fn create_variable(&mut self, name: &str, dims: &Vec<String>, nctype: i32) 
+    pub fn create_variable(&mut self, name: &str, dims: &Vec<String>, nctype: i32)
                 -> Result<&mut Variable, String>
     {
         let name_c: ffi::CString = ffi::CString::new(name.clone()).unwrap();
@@ -207,7 +207,7 @@ impl Group {
         if err != NC_NOERR {
             return Err(NC_ERRORS.get(&err).unwrap().clone());
         }
-        init_variable(&mut self.variables, self.id, &mut self.dimensions, varid);
+        init_variable(&mut self.variables, self.id, &mut self.dimensions, varid)?;
         match self.variables.get_mut(name) {
             Some(var) => Ok(var),
             None => Err("Variable creation failed".into())
@@ -216,14 +216,14 @@ impl Group {
 }
 
 fn init_sub_groups(grp_id: i32, sub_groups: &mut HashMap<String, Group>,
-                   parent_dims: &HashMap<String, Dimension>) {
+                   parent_dims: &HashMap<String, Dimension>)->Result<(),String> {
     let mut ngrps = 0i32;
     let mut grpids : Vec<i32>;
 
     // Fetching the group ID's list must be done in 2 steps,
     // 1 - Find out how many groups there are.
     // 2 - Get a list of those group IDs.
-    // 
+    //
     // the function `nc_inq_grps()` fulfill those 2 requests
     // See: http://www.unidata.ucar.edu/software/netcdf/netcdf-4/newdocs/netcdf-c/nc_005finq_005fgrps.html
     unsafe {
@@ -253,9 +253,9 @@ fn init_sub_groups(grp_id: i32, sub_groups: &mut HashMap<String, Group>,
             assert_eq!(err, NC_NOERR);
             c_str = ffi::CStr::from_ptr(buf_ptr);
         }
-        let str_buf: String = string_from_c_str(c_str);
+        let str_buf: String = string_from_c_str(c_str).unwrap();
 
-        // Per NetCDF doc, "Dimensions are visible in their groups, and all 
+        // Per NetCDF doc, "Dimensions are visible in their groups, and all
         // child groups."
         let mut new_grp = Group {
                 name: str_buf.clone(),
@@ -265,14 +265,16 @@ fn init_sub_groups(grp_id: i32, sub_groups: &mut HashMap<String, Group>,
                 dimensions: parent_dims.clone(),
                 sub_groups: HashMap::new(),
             };
-        init_group(&mut new_grp);
+        init_group(&mut new_grp)?;
         sub_groups.insert(str_buf.clone(), new_grp);
     }
+    Ok(())
 }
 
-pub fn init_group(grp: &mut Group) {
-    init_dimensions(&mut grp.dimensions, grp.id);
-    init_attributes(&mut grp.attributes, grp.id, NC_GLOBAL, -1);
-    init_variables(&mut grp.variables, grp.id, &grp.dimensions);
-    init_sub_groups(grp.id, &mut grp.sub_groups, &grp.dimensions);
+pub fn init_group(grp: &mut Group)->Result<(),String> {
+    init_dimensions(&mut grp.dimensions, grp.id)?;
+    init_attributes(&mut grp.attributes, grp.id, NC_GLOBAL, -1)?;
+    init_variables(&mut grp.variables, grp.id, &grp.dimensions)?;
+    init_sub_groups(grp.id, &mut grp.sub_groups, &grp.dimensions)?;
+    Ok(())
 }

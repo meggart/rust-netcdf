@@ -1,9 +1,9 @@
 //! Rust bindings for Unidata's [libnetcdf] (http://www.unidata.ucar.edu/software/netcdf/)
 //!
 //! # Examples
-//! 
+//!
 //! Read:
-//! 
+//!
 //! ```
 //! # let path_to_simple_xy = netcdf::test_file("simple_xy.nc");
 //! // Open file simple_xy.nc:
@@ -33,15 +33,15 @@
 //! let f = netcdf::test_file_new("crabs2.nc"); // just gets a path inside repo
 //! {
 //!     let mut file = netcdf::create(&f).unwrap();
-//!     
+//!
 //!     let dim_name = "ncrabs";
 //!     file.root.add_dimension(dim_name, 10).unwrap();
-//!     
+//!
 //!     let var_name = "crab_coolness_level";
 //!     let data : Vec<i32> = vec![42; 10];
 //!     // Variable type written to file is inferred from Vec type:
 //!     file.root.add_variable(
-//!                 var_name, 
+//!                 var_name,
 //!                 &vec![dim_name.to_string()],
 //!                 &data
 //!             ).unwrap();
@@ -54,7 +54,7 @@
 //!     let mut file = netcdf::append(&f).unwrap();
 //!     // get a mutable binding of the variable "crab_coolness_level"
 //!     let mut var = file.root.variables.get_mut("crab_coolness_level").unwrap();
-//!    
+//!
 //!     let data : Vec<i32> = vec![100; 10];
 //!     // write 5 first elements of the vector `data` into `var` starting at index 2;
 //!     var.put_values_at(&data, &[2], &[5]);
@@ -88,19 +88,22 @@ pub use file::open;
 pub use file::create;
 pub use file::append;
 
-fn string_from_c_str(c_str: &ffi::CStr) -> String {
+fn string_from_c_str(c_str: &ffi::CStr) -> Result<String,String> {
     // see http://stackoverflow.com/questions/24145823/rust-ffi-c-string-handling
     // for good rundown
     let buf: &[u8] = c_str.to_bytes();
-    let str_slice: &str = str::from_utf8(buf).unwrap();
-    str_slice.to_owned()
+    let str_slice: &str = match str::from_utf8(buf) {
+        Ok(s) => s,
+        Err(e) => return Err(format!("Could not convert attribute because of {:?}",e)),
+    };
+    Ok(str_slice.to_owned())
 }
 
 
 lazy_static! {
     pub static ref NC_ERRORS: HashMap<i32, String> = {
         let mut m = HashMap::new();
-        // Invalid error codes are ok; nc_strerror will just return 
+        // Invalid error codes are ok; nc_strerror will just return
         // "Unknown Error"
         for i in -256..256 {
             let msg_cstr : &ffi::CStr;
@@ -109,7 +112,7 @@ lazy_static! {
                 let msg : *const i8 = nc_strerror(i);
                 msg_cstr = &ffi::CStr::from_ptr(msg);
             }
-            m.insert(i, string_from_c_str(msg_cstr));
+            m.insert(i, string_from_c_str(msg_cstr).unwrap());
         }
         m
     };

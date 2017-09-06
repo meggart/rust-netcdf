@@ -6,7 +6,7 @@ use string_from_c_str;
 use NC_ERRORS;
 
 macro_rules! get_attr_as_type {
-    ( $me:ident, $nc_type:ident, $rs_type:ty, $nc_fn:ident , $cast:ident ) 
+    ( $me:ident, $nc_type:ident, $rs_type:ty, $nc_fn:ident , $cast:ident )
         =>
     {{
         if (!$cast) && ($me.attrtype != $nc_type) {
@@ -14,7 +14,7 @@ macro_rules! get_attr_as_type {
         }
         let mut err: i32;
         let mut attlen : u64 = 0;
-        let name_copy: ffi::CString = 
+        let name_copy: ffi::CString =
             ffi::CString::new($me.name.clone()).unwrap();
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();
@@ -30,7 +30,7 @@ macro_rules! get_attr_as_type {
         let mut buf: $rs_type = 0 as $rs_type;
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();
-            err = $nc_fn($me.file_id, $me.var_id, 
+            err = $nc_fn($me.file_id, $me.var_id,
                                        name_copy.as_ptr(),
                                        &mut buf);
         }
@@ -55,7 +55,7 @@ impl Attribute {
             return Err("Types are not equivalent and cast==false".to_string());
         }
         let attr_char_str;
-        let name_copy: ffi::CString = 
+        let name_copy: ffi::CString =
             ffi::CString::new(self.name.clone()).unwrap();
         let mut attlen : u64 = 0;
         unsafe {
@@ -73,7 +73,7 @@ impl Attribute {
             let attr_char_buf_ptr: *mut i8 = attr_char_buf_vec.as_mut_ptr();
             {
                 let _g = libnetcdf_lock.lock().unwrap();
-                err = nc_get_att_text(self.file_id, self.var_id, 
+                err = nc_get_att_text(self.file_id, self.var_id,
                                             name_copy.as_ptr(),
                                             attr_char_buf_ptr);
             }
@@ -81,7 +81,7 @@ impl Attribute {
                 return Err(NC_ERRORS.get(&err).unwrap().clone());
             }
             let attr_c_str = ffi::CStr::from_ptr(attr_char_buf_ptr);
-            attr_char_str = string_from_c_str(attr_c_str);
+            attr_char_str = string_from_c_str(attr_c_str)?;
         }
         Ok(attr_char_str)
     }
@@ -132,10 +132,10 @@ impl fmt::Display for Attribute {
     }
 }
 
-pub fn init_attributes(attrs: &mut HashMap<String, Attribute>, 
-                   file_id: i32, 
+pub fn init_attributes(attrs: &mut HashMap<String, Attribute>,
+                   file_id: i32,
                    var_id: i32,
-                   natts_in: i32) { // TODO: better interface to indicate these are var attrs
+                   natts_in: i32)->Result<(),String> { // TODO: better interface to indicate these are var attrs
     let mut nattrs = 0i32;
     if natts_in == -1 {
         // these are global attrs; have to determine number of attrs
@@ -162,7 +162,7 @@ pub fn init_attributes(attrs: &mut HashMap<String, Attribute>,
             assert_eq!(err, NC_NOERR);
             name_c_str = ffi::CStr::from_ptr(name_buf_ptr);
         }
-        let name_str: String = string_from_c_str(name_c_str);
+        let name_str: String = string_from_c_str(name_c_str)?;
         attrs.insert(name_str.clone(),
                       Attribute{name: name_str.clone(),
                           attrtype: attr_type,
@@ -170,4 +170,5 @@ pub fn init_attributes(attrs: &mut HashMap<String, Attribute>,
                           var_id: var_id,
                           file_id: file_id});
     }
+    Ok(())
 }

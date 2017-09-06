@@ -32,9 +32,9 @@ pub fn open(file: &str) -> Result<File, String> {
             dimensions: HashMap::new(),
             sub_groups: HashMap::new(),
         };
-    init_group(&mut root);
+    init_group(&mut root)?;
     Ok(File {
-        id: ncid, 
+        id: ncid,
         name: file.to_string(),
         root: root,
     })
@@ -62,9 +62,9 @@ pub fn append(file: &str) -> Result<File, String> {
             dimensions: HashMap::new(),
             sub_groups: HashMap::new(),
         };
-    init_group(&mut root);
+    init_group(&mut root)?;
     Ok(File {
-        id: ncid, 
+        id: ncid,
         name: file.to_string(),
         root: root,
     })
@@ -92,7 +92,7 @@ pub fn create(file: &str) -> Result<File, String> {
             sub_groups: HashMap::new(),
         };
     Ok(File {
-        id: ncid, 
+        id: ncid,
         name: file.to_string(),
         root: root,
     })
@@ -114,4 +114,3 @@ impl Drop for File {
         self.close();
     }
 }
-
