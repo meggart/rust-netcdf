@@ -196,7 +196,7 @@ macro_rules! impl_numeric {
                 if indices.len() != slice_len.len() {
                     return Err("`slice` must has the same length as the variable dimensions".into());
                 }
-                let mut values_len = 0;
+                let mut values_len = 1;
                 for i in 0..indices.len() {
                     if (indices[i] as u64) >= variable.dimensions[i].len {
                         return Err("requested index is bigger than the dimension length".into());
@@ -208,7 +208,7 @@ macro_rules! impl_numeric {
                     if slice_len[i] == 0 {
                         return Err("Each slice element must be superior than 0".into());
                     }
-                    values_len += slice_len[i];
+                    values_len *= slice_len[i];
                 }
                 if values_len  != values.len() {
                     return Err("number of element in `values` doesn't match `slice_len`".into());
