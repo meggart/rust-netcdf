@@ -110,7 +110,7 @@ impl PutAttr for String {
             let _g = libnetcdf_lock.lock().unwrap();
             err = nc_put_att_text(
                 ncid, varid, name_c.as_ptr(),
-                attr_c.to_bytes().len() as u64, attr_c.as_ptr());
+                attr_c.to_bytes().len() as size_t, attr_c.as_ptr());
         }
         if err != NC_NOERR {
             return Err(NC_ERRORS.get(&err).unwrap().clone());
@@ -143,7 +143,7 @@ impl Group {
         let err : i32;
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();
-            err = nc_def_dim(self.id, name_c.as_ptr(), len, &mut dimid);
+            err = nc_def_dim(self.id, name_c.as_ptr(), len as size_t, &mut dimid);
         }
         if err != NC_NOERR {
             return Err(NC_ERRORS.get(&err).unwrap().clone());
@@ -239,7 +239,7 @@ fn init_sub_groups(grp_id: i32, sub_groups: &mut HashMap<String, Group>,
         assert_eq!(err, NC_NOERR);
     }
     for i_grp in 0..ngrps {
-        let mut namelen = 0u64;
+        let mut namelen = 0;
         let c_str: &ffi::CStr;
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();

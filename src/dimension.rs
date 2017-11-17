@@ -22,7 +22,7 @@ pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32)->Resu
     // read each dim name and length
     for i_dim in 0..ndims {
         let mut buf_vec = vec![0i8; (NC_MAX_NAME + 1) as usize];
-        let mut dimlen : u64 = 0u64;
+        let mut dimlen: size_t = 0;
         let c_str: &ffi::CStr;
         unsafe {
             let _g = libnetcdf_lock.lock().unwrap();
@@ -34,7 +34,7 @@ pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32)->Resu
         let str_buf: String = string_from_c_str(c_str)?;
         dims.insert(str_buf.clone(),
                       Dimension{name: str_buf.clone(),
-                          len: dimlen,
+                          len: dimlen as u64,
                           id: i_dim});
     }
     Ok(())

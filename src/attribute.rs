@@ -13,7 +13,7 @@ macro_rules! get_attr_as_type {
             return Err("Types are not equivalent and cast==false".to_string());
         }
         let mut err: i32;
-        let mut attlen : u64 = 0;
+        let mut attlen : size_t = 0;
         let name_copy: ffi::CString =
             ffi::CString::new($me.name.clone()).unwrap();
         unsafe {
@@ -57,7 +57,7 @@ impl Attribute {
         let attr_char_str;
         let name_copy: ffi::CString =
             ffi::CString::new(self.name.clone()).unwrap();
-        let mut attlen : u64 = 0;
+        let mut attlen : size_t = 0;
         unsafe {
             let mut err;
             {
