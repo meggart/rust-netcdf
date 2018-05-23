@@ -28,7 +28,7 @@ pub fn init_dimensions(dims: &mut HashMap<String, Dimension>, grp_id: i32)->Resu
             let _g = libnetcdf_lock.lock().unwrap();
             let buf_ptr : *mut i8 = buf_vec.as_mut_ptr();
             let err = nc_inq_dim(grp_id, i_dim, buf_ptr, &mut dimlen);
-            assert_eq!(err, NC_NOERR);
+            if err!=NC_NOERR {return Err("Could not inquire dimensions".into());} 
             c_str = ffi::CStr::from_ptr(buf_ptr);
         }
         let str_buf: String = string_from_c_str(c_str)?;
